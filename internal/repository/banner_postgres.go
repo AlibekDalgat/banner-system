@@ -13,9 +13,18 @@ type BannerPostgres struct {
 	db *sqlx.DB
 }
 
-func (b *BannerPostgres) GetUserBanner(tagId, featId int) (models.BannerContent, error) {
-	//TODO implement me
-	panic("implement me")
+func (b *BannerPostgres) GetUserBanner(tagId, featId int, accessAdmin bool) (models.BannerContent, error) {
+	var banner models.BannerContent
+	var isActive bool
+	query := fmt.Sprintf("SELECT title, text, url, is_active FROM %s WHERE $1 = feature_id AND $2 = ANY(tag_ids)", bannersTable)
+	row := b.db.QueryRow(query, featId, tagId)
+	if err := row.Scan(&banner.Title, &banner.Text, &banner.URL, &isActive); err != nil {
+		return banner, err
+	}
+	if !accessAdmin && !isActive {
+		return banner, errors.New("Пользователь не имеет доступа")
+	}
+	return banner, nil
 }
 
 func (b *BannerPostgres) GetAllBanners(filter models.Filter) ([]models.BannerInfo, error) {
@@ -102,21 +111,7 @@ func (b *BannerPostgres) CreateBanner(input models.BannerInfo) (int, error) {
 	return id, nil
 }
 
-func (b *BannerPostgres) UpdateBanner(input models.BannerInfo) (models.CachKey, models.BannerInfo, error) {
-	query := fmt.Sprintf("SELECT * FROM %s WHERE id = $1", bannersTable)
-	row := b.db.QueryRow(query, input.Id)
-	var oldBanner models.BannerInfo
-	oldBanner.Content = &models.BannerContent{}
-	oldBanner.TagIds = &models.IntArray{}
-	var oldTags pq.Int64Array
-	if err := row.Scan(&oldBanner.Id, &oldBanner.Content.Title, &oldBanner.Content.Text, &oldBanner.Content.URL, &oldTags,
-		&oldBanner.FeatureId, &oldBanner.IsActive, &oldBanner.CreatedAt, &oldBanner.UpdatedAt); err != nil {
-		return models.CachKey{}, models.BannerInfo{}, err
-	}
-	for _, i := range oldTags {
-		*oldBanner.TagIds = append(*oldBanner.TagIds, int(i))
-	}
-
+func (b *BannerPostgres) UpdateBanner(input models.BannerInfo) error {
 	updates := make([]string, 0)
 	args := make([]interface{}, 0)
 
@@ -151,9 +146,9 @@ func (b *BannerPostgres) UpdateBanner(input models.BannerInfo) (models.CachKey, 
 		updates = append(updates, fmt.Sprintf("is_active = $%d", len(args)+1))
 		args = append(args, *input.IsActive)
 	}
-	oldCacheKey := models.CachKey{TagIds: oldBanner.TagIds, FeatureId: oldBanner.FeatureId}
+
 	if len(updates) == 0 {
-		return oldCacheKey, oldBanner, nil
+		return nil
 	}
 
 	updates = append(updates, fmt.Sprintf("updated_at = $%d", len(args)+1))
@@ -161,23 +156,13 @@ func (b *BannerPostgres) UpdateBanner(input models.BannerInfo) (models.CachKey, 
 
 	args = append(args, input.Id)
 
-	query = fmt.Sprintf("UPDATE %s SET %s WHERE id = $%d RETURNING feature_id, tag_ids, title, text, url, is_active", bannersTable, strings.Join(updates, ", "), len(args))
-	fmt.Println(query)
-	fmt.Println(args)
-	row = b.db.QueryRow(query, args...)
-
-	var banner models.BannerInfo
-	banner.Content = &models.BannerContent{}
-	banner.TagIds = &models.IntArray{}
-	var tags pq.Int64Array
-	err := row.Scan(&banner.FeatureId, &tags, &banner.Content.Title, &banner.Content.Text, &banner.Content.URL, &banner.IsActive)
+	query := fmt.Sprintf("UPDATE %s SET %s WHERE id = $%d",
+		bannersTable, strings.Join(updates, ", "), len(args))
+	_, err := b.db.Exec(query, args...)
 	if err != nil {
-		return models.CachKey{}, models.BannerInfo{}, err
+		return err
 	}
-	for _, i := range tags {
-		*banner.TagIds = append(*banner.TagIds, int(i))
-	}
-	return oldCacheKey, banner, nil
+	return nil
 }
 
 func (b *BannerPostgres) DeleteBanner(id int) (models.CachKey, error) {

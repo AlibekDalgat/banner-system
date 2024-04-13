@@ -11,10 +11,10 @@ type Authorization interface {
 }
 
 type Banner interface {
-	GetUserBanner(tagId, featId int) (models.BannerContent, error)
+	GetUserBanner(tagId, featId int, accessAdmin bool) (models.BannerContent, error)
 	GetAllBanners(filter models.Filter) ([]models.BannerInfo, error)
 	CreateBanner(input models.BannerInfo) (int, error)
-	UpdateBanner(banner models.BannerInfo) (models.CachKey, models.BannerInfo, error)
+	UpdateBanner(banner models.BannerInfo) error
 	DeleteBanner(bannerId int) (models.CachKey, error)
 }
 

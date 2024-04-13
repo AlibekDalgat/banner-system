@@ -5,13 +5,65 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"net/http"
 	"strconv"
 	"time"
 )
 
 func (h *Handler) GetUserBanner(c *gin.Context) {
-	fmt.Println("Get User Banner")
+	accessAdminStr, _ := c.Get("isAdmin")
+	accessAdmin, ok := accessAdminStr.(bool)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, "Внутренняя ошибка сервера")
+	}
+
+	tagIdStr := c.Query("tag_id")
+	tagId, err := strconv.Atoi(tagIdStr)
+	if err != nil {
+		newErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	featureIdStr := c.Query("feature_id")
+	featureId, err := strconv.Atoi(featureIdStr)
+	if err != nil {
+		newErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	useLastRevision := false
+	useLastRevisionStr := c.Query("use_last_revision")
+	fmt.Println("le: ", useLastRevisionStr)
+	if useLastRevisionStr != "" {
+		useLastRevision, err = strconv.ParseBool(useLastRevisionStr)
+		if err != nil {
+			newErrorResponse(c, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+
+	var banner models.BannerContent
+	val, err := h.cache.Get(c, featureIdStr+":"+tagIdStr).Result()
+	if !useLastRevision && err != redis.Nil {
+		err = json.Unmarshal([]byte(val), &banner)
+		if err != nil {
+			newErrorResponse(c, http.StatusInternalServerError, err.Error())
+			return
+		}
+	} else {
+		banner, err = h.services.GetUserBanner(tagId, featureId, accessAdmin)
+		if err != nil {
+			newErrorResponse(c, http.StatusInternalServerError, err.Error())
+			return
+		}
+		bannerJSON, err := json.Marshal(banner)
+		if err != nil {
+			newErrorResponse(c, http.StatusInternalServerError, err.Error())
+			return
+		}
+		h.cache.Set(c, featureIdStr+":"+tagIdStr, bannerJSON, 5*time.Minute)
+	}
+	c.JSON(http.StatusOK, banner)
 }
 
 func (h *Handler) GetAllBanners(c *gin.Context) {
@@ -81,17 +133,17 @@ func (h *Handler) CreateBanner(c *gin.Context) {
 		newErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
-
-	bannerContentJSON, err := json.Marshal(input.Content)
-	if err != nil {
-		newErrorResponse(c, http.StatusInternalServerError, err.Error())
-		return
+	if *input.IsActive {
+		bannerContentJSON, err := json.Marshal(input.Content)
+		if err != nil {
+			newErrorResponse(c, http.StatusInternalServerError, err.Error())
+			return
+		}
+		for _, tagId := range *input.TagIds {
+			combineKey := strconv.Itoa(*input.FeatureId) + ":" + strconv.Itoa(tagId)
+			h.cache.Set(c, combineKey, string(bannerContentJSON), 5*time.Minute)
+		}
 	}
-	for _, tagId := range *input.TagIds {
-		combineKey := strconv.Itoa(*input.FeatureId) + ":" + strconv.Itoa(tagId)
-		h.cache.Set(c, combineKey, string(bannerContentJSON), 5*time.Minute)
-	}
-
 	c.JSON(http.StatusOK, map[string]interface{}{
 		"banner_id": id,
 	})
@@ -116,24 +168,10 @@ func (h *Handler) UpdateBanner(c *gin.Context) {
 		return
 	}
 	input.Id = id
-	oldKey, banner, err := h.services.UpdateBanner(input)
+	err = h.services.UpdateBanner(input)
 	if err != nil {
 		newErrorResponse(c, http.StatusNotFound, err.Error())
 		return
-	}
-	for _, tagId := range *oldKey.TagIds {
-		combineKey := strconv.Itoa(*oldKey.FeatureId) + ":" + strconv.Itoa(tagId)
-		h.cache.Del(c, combineKey)
-	}
-
-	bannerContentJSON, err := json.Marshal(banner.Content)
-	if err != nil {
-		newErrorResponse(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-	for _, tagId := range *banner.TagIds {
-		combineKey := strconv.Itoa(*banner.FeatureId) + ":" + strconv.Itoa(tagId)
-		h.cache.Set(c, combineKey, string(bannerContentJSON), 5*time.Minute)
 	}
 
 	c.JSON(http.StatusOK, map[string]interface{}{

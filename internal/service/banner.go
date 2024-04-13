@@ -10,9 +10,8 @@ type BannerService struct {
 	repo repository.Banner
 }
 
-func (s *BannerService) GetUserBanner(tagId, featId int) (models.BannerContent, error) {
-	//TODO implement me
-	panic("implement me")
+func (s *BannerService) GetUserBanner(tagId, featId int, accessAdmin bool) (models.BannerContent, error) {
+	return s.repo.GetUserBanner(tagId, featId, accessAdmin)
 }
 
 func (s *BannerService) GetAllBanners(filter models.Filter) ([]models.BannerInfo, error) {
@@ -25,7 +24,7 @@ func (s *BannerService) CreateBanner(input models.BannerInfo) (int, error) {
 	return s.repo.CreateBanner(input)
 }
 
-func (s *BannerService) UpdateBanner(input models.BannerInfo) (models.CachKey, models.BannerInfo, error) {
+func (s *BannerService) UpdateBanner(input models.BannerInfo) error {
 	input.UpdatedAt = time.Now()
 	return s.repo.UpdateBanner(input)
 }
