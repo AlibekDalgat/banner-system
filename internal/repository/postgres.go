@@ -4,6 +4,13 @@ import (
 	"banner-system/internal/config"
 	"fmt"
 	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
+)
+
+const (
+	usersTable   = "users"
+	adminsTable  = "admins"
+	bannersTable = "banners"
 )
 
 func OpenDB(cfg config.DBConfig) (*sqlx.DB, error) {
