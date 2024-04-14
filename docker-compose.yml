@@ -1,0 +1,44 @@
+version: "3.8"
+
+services:
+  app:
+    container_name: app-banner-system
+    build: ./
+    command: ./wait-for-postgres.sh db ./bin/app
+    ports:
+      - 8000:8000
+    environment:
+      - PGUSER=postgres
+      - PGPASSWORD=postgres
+      - PGHOST=db
+      - PGPORT=5432
+      - PGDATABASE=postgres
+      - PGSSLMODE=disable
+      - HTTP_PORT=8000
+      - REDHOST=cache
+      - REDPORT=6379
+      - REDPASSWORD=
+      - REDDB=0
+    depends_on:
+      - db
+      - cache
+
+  db:
+    container_name: postgres-banner-system
+    restart: always
+    image: postgres:latest
+    volumes:
+      - ./.database/postgres/data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=postgres
+    ports:
+      - 5432:5432
+
+  cache:
+    container_name: redis-banner-system
+    restart: always
+    image: redis:latest
+    ports:
+      - 6379:6379

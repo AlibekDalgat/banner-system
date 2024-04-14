@@ -24,7 +24,7 @@ CREATE TABLE banners (
 
 CREATE TABLE history_banners (
     history_id SERIAL PRIMARY KEY,
-    id INT NOT NULL,
+    banner_id INT NOT NULL,
     title TEXT,
     text TEXT,
     url TEXT,

@@ -9,7 +9,6 @@ import (
 	"banner-system/internal/service"
 	"context"
 	"github.com/sirupsen/logrus"
-	"github.com/subosito/gotenv"
 	"net/http"
 	"os"
 	"os/signal"
@@ -18,9 +17,11 @@ import (
 
 func main() {
 	logrus.SetFormatter(new(logrus.JSONFormatter))
-	if err := gotenv.Load(); err != nil {
-		logrus.Fatalf("Ошибка при получении переменных окружения %s", err.Error())
-	}
+	/*
+		if err := gotenv.Load(); err != nil {
+			logrus.Fatalf("Ошибка при получении переменных окружения %s", err.Error())
+		}
+	*/
 	dbCfg := config.GetDBConfig()
 	db, err := repository.OpenDB(dbCfg)
 	if err != nil {

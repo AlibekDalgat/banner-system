@@ -20,13 +20,13 @@ func (h *Handler) GetUserBanner(c *gin.Context) {
 	tagIdStr := c.Query("tag_id")
 	tagId, err := strconv.Atoi(tagIdStr)
 	if err != nil {
-		newErrorResponse(c, http.StatusInternalServerError, err.Error())
+		newErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
 	}
 	featureIdStr := c.Query("feature_id")
 	featureId, err := strconv.Atoi(featureIdStr)
 	if err != nil {
-		newErrorResponse(c, http.StatusInternalServerError, err.Error())
+		newErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -168,7 +168,7 @@ func (h *Handler) UpdateBanner(c *gin.Context) {
 	input.Id = id
 	err = h.services.UpdateBanner(input)
 	if err != nil {
-		newErrorResponse(c, http.StatusNotFound, err.Error())
+		newErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
