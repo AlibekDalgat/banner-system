@@ -29,6 +29,9 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		api.POST("/banner", h.CreateBanner)
 		api.PATCH("/banner/:id", h.UpdateBanner)
 		api.DELETE("/banner/:id", h.DeleteBanner)
+		api.DELETE("/banner", h.DeleteBannerByTagFeat)
+		api.GET("/banner/:id", h.GetBannerVersions)
+		api.PUT("/banner/:id", h.BackToVersion)
 	}
 	return router
 }

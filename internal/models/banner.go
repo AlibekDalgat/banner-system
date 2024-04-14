@@ -32,9 +32,24 @@ type BannerInfo struct {
 	UpdatedAt time.Time      `json:"updated_at" db:"updated_at"`
 }
 
-type CachKey struct {
-	TagIds    *IntArray `json:"tag_ids" db:"tag_ids"`
-	FeatureId *int      `json:"feature_id" db:"feature_id"`
+func (b BannerInfo) Validate() bool {
+	if b.FeatureId == nil {
+		return false
+	}
+	if b.TagIds == nil {
+		return false
+	} else if len(*b.TagIds) == 0 {
+		return false
+	}
+	if b.IsActive == nil {
+		return false
+	}
+	if b.Content == nil {
+		return false
+	} else if b.Content.Title == nil || b.Content.Text == nil || b.Content.URL == nil {
+		return false
+	}
+	return true
 }
 
 type Filter struct {
@@ -42,4 +57,8 @@ type Filter struct {
 	FeatureId int
 	Limit     int
 	Offset    int
+}
+
+type Version struct {
+	Number int `json:"version"`
 }

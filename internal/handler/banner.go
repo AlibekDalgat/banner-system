@@ -3,7 +3,6 @@ package delivery
 import (
 	"banner-system/internal/models"
 	"encoding/json"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"net/http"
@@ -33,7 +32,6 @@ func (h *Handler) GetUserBanner(c *gin.Context) {
 
 	useLastRevision := false
 	useLastRevisionStr := c.Query("use_last_revision")
-	fmt.Println("le: ", useLastRevisionStr)
 	if useLastRevisionStr != "" {
 		useLastRevision, err = strconv.ParseBool(useLastRevisionStr)
 		if err != nil {
@@ -192,16 +190,107 @@ func (h *Handler) DeleteBanner(c *gin.Context) {
 		return
 	}
 
-	deletedKey, err := h.services.DeleteBanner(id)
+	err = h.services.DeleteBanner(id)
 	if err != nil {
-		newErrorResponse(c, http.StatusNotFound, err.Error())
+		newErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
-	for _, tagId := range *deletedKey.TagIds {
-		combineKey := strconv.Itoa(*deletedKey.FeatureId) + ":" + strconv.Itoa(tagId)
-		h.cache.Del(c, combineKey)
-	}
+
 	c.JSON(http.StatusNoContent, map[string]interface{}{
 		"description": "Баннер успешно удален",
+	})
+}
+
+func (h *Handler) DeleteBannerByTagFeat(c *gin.Context) {
+	checkAccess, _ := c.Get(isAdmin)
+	if !checkAccess.(bool) {
+		newErrorResponse(c, http.StatusForbidden, "Пользователь не имеет доступа")
+		return
+	}
+	tagIdStr := c.Query("tag_id")
+	var err error
+	tagId := 0
+	if tagIdStr != "" {
+		tagId, err = strconv.Atoi(tagIdStr)
+		if err != nil {
+			newErrorResponse(c, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+	featureIdStr := c.Query("feature_id")
+	featureId := 0
+	if featureIdStr != "" {
+		featureId, err = strconv.Atoi(featureIdStr)
+		if err != nil {
+			newErrorResponse(c, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+
+	if featureId != 0 && tagId != 0 || featureId == 0 && tagId == 0 {
+		newErrorResponse(c, http.StatusBadRequest, "Должен быть только один из параметров")
+		return
+	}
+
+	err = h.services.DeleteBannerByTagFeat(tagId, featureId)
+	if err != nil {
+		newErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	c.JSON(http.StatusNoContent, map[string]interface{}{
+		"description": "Баннеры успешно удалены",
+	})
+}
+
+func (h *Handler) GetBannerVersions(c *gin.Context) {
+	checkAccess, _ := c.Get(isAdmin)
+	if !checkAccess.(bool) {
+		newErrorResponse(c, http.StatusForbidden, "Пользователь не имеет доступа")
+		return
+	}
+
+	idParam := c.Param("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		newErrorResponse(c, http.StatusBadRequest, "Некорректные данные")
+		return
+	}
+
+	banners, err := h.services.GetOldVersionBanner(id)
+	if err != nil {
+		newErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, banners)
+}
+
+func (h *Handler) BackToVersion(c *gin.Context) {
+	checkAccess, _ := c.Get(isAdmin)
+	if !checkAccess.(bool) {
+		newErrorResponse(c, http.StatusForbidden, "Пользователь не имеет доступа")
+		return
+	}
+
+	idParam := c.Param("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		newErrorResponse(c, http.StatusBadRequest, "Некорректные данные")
+		return
+	}
+
+	var version models.Version
+	if err = c.BindJSON(&version); err != nil {
+		newErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	err = h.services.BackToVersion(id, version.Number)
+	if err != nil {
+		newErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, map[string]interface{}{
+		"description": "ok",
 	})
 }

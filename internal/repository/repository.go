@@ -14,7 +14,10 @@ type Banner interface {
 	GetAllBanners(filter models.Filter) ([]models.BannerInfo, error)
 	CreateBanner(input models.BannerInfo) (int, error)
 	UpdateBanner(banner models.BannerInfo) error
-	DeleteBanner(bannerId int) (models.CachKey, error)
+	DeleteBanner(bannerId int) error
+	DeleteBannerByTagFeat(tagId int, featId int) error
+	GetOldVersionBanner(id int) ([]models.BannerInfo, error)
+	BackToVersion(id, version int) error
 }
 
 type Repository struct {

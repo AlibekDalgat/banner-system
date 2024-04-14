@@ -8,9 +8,10 @@ import (
 )
 
 const (
-	usersTable   = "users"
-	adminsTable  = "admins"
-	bannersTable = "banners"
+	usersTable          = "users"
+	adminsTable         = "admins"
+	bannersTable        = "banners"
+	historyBannersTable = "history_banners"
 )
 
 func OpenDB(cfg config.DBConfig) (*sqlx.DB, error) {
